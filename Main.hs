@@ -46,7 +46,7 @@ checkInstance instanceName = do
     divServiceBlock <- try $ findElem (ByCSS "div[class='userServicesBlock']")
     case (divServiceBlock :: Either FailedCommand Element) of
       Left (FailedCommand t _) -> do
-        liftIO $ putStrLn $ instanceName <> " [KO]"
+        liftIO $ putStrLn $ (T.unpack instanceName) <> " [KO]"
         saveScreenshot $ "/tmp/snap/error-" <> (T.unpack instanceName) <> ".jpg"
         liftIO $ putStrLn $ show t
       Right _ -> do

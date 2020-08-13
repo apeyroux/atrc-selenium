@@ -68,8 +68,9 @@ main = do
                         r <- try (checkInstance i)
                         case (r :: Either FailedCommand ()) of
                           Left (FailedCommand t _) -> do
-                            putStrLn $ (T.unpack i) <> "[KO]" -- "ERROR: " <> show t
+                            putStrLn $ (T.unpack i) <> " [KO]" -- "ERROR: " <> show t
                           Right _ -> do
-                            putStrLn "Traitement OK !!!!"
+                            return ()
+                            -- putStrLn "Traitement OK !!!!"
                     ) i
     Nothing -> putStrLn "Je ne comprend pas l'inventaire"

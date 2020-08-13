@@ -67,7 +67,7 @@ main = do
                         r <- try (checkInstance i)
                         case (r :: Either FailedCommand ()) of
                           Left (FailedCommand t _) -> do
-                            putStrLn $ "ERROR !!!!" <> show t
+                            putStrLn $ "ERROR: " <> show t
                           Right _ -> do
                             putStrLn "Traitement OK !!!!"
                     ) i

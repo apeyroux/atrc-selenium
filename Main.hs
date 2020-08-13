@@ -26,7 +26,7 @@ phantomjsConfig = useBrowser (Phantomjs { phantomjsBinary = (Just "/nix/store/vk
 checkInstance :: Text -> IO ()
 checkInstance instanceName = do
 
-  putStrLn $ "Start du test pour " <> (T.unpack instanceURL) <> " ..."
+  -- putStrLn $ "Start du test pour " <> (T.unpack instanceURL) <> " ..."
 
   runSession chromeConfig . finallyClose $ do
 
@@ -46,14 +46,15 @@ checkInstance instanceName = do
     divServiceBlock <- try $ findElem (ByCSS "div[class='userServicesBlock']")
     case (divServiceBlock :: Either FailedCommand Element) of
       Left (FailedCommand t _) -> do
-        liftIO $ putStrLn "ERROR I TAKE SCREENSHOT !!!!"
+        liftIO $ putStrLn $ instanceName <> " [KO]"
         saveScreenshot $ "/tmp/snap/error-" <> (T.unpack instanceName) <> ".jpg"
         liftIO $ putStrLn $ show t
-      Right sb -> do
-        t <- getText sb
-        liftIO $ print t
+      Right _ -> do
+        -- t <- getText sb
+        -- liftIO $ print t
+        putSrLn $ instanceName <> " [OK]"
 
-  putStrLn "Fin du test ..."
+  -- putStrLn "Fin du test ..."
 
   where
     instanceURL = "https://" <> instanceName <> ".krb.gendarmerie.fr"
@@ -67,7 +68,7 @@ main = do
                         r <- try (checkInstance i)
                         case (r :: Either FailedCommand ()) of
                           Left (FailedCommand t _) -> do
-                            putStrLn $ "ERROR: " <> show t
+                            putStrLn $ i <> "[KO]" -- "ERROR: " <> show t
                           Right _ -> do
                             putStrLn "Traitement OK !!!!"
                     ) i

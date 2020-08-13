@@ -52,7 +52,7 @@ checkInstance instanceName = do
       Right _ -> do
         -- t <- getText sb
         -- liftIO $ print t
-        putSrLn $ instanceName <> " [OK]"
+        liftIO $ putStrLn $ (T.unpack instanceName) <> " [OK]"
 
   -- putStrLn "Fin du test ..."
 
@@ -68,7 +68,7 @@ main = do
                         r <- try (checkInstance i)
                         case (r :: Either FailedCommand ()) of
                           Left (FailedCommand t _) -> do
-                            putStrLn $ i <> "[KO]" -- "ERROR: " <> show t
+                            putStrLn $ (T.unpack i) <> "[KO]" -- "ERROR: " <> show t
                           Right _ -> do
                             putStrLn "Traitement OK !!!!"
                     ) i

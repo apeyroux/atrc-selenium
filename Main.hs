@@ -2,25 +2,35 @@
 
 module Main where
 
-import Control.Monad.Trans.Except
-import Control.Monad.IO.Class
-import Control.Exception.Lifted (SomeException, try, throwIO)
-import Data.Text as T
-import Test.WebDriver
-import Test.WebDriver.Exceptions
+import           Control.Exception.Lifted (SomeException, try, throwIO)
+import           Control.Monad.IO.Class
+import           Control.Monad.Trans.Except
+import           Data.Aeson
+import qualified Data.ByteString.Lazy as BSL
+import           Data.Text (Text)
+import           Data.Text as T
+import           Test.WebDriver
+import           Test.WebDriver.Exceptions
 
 firefoxConfig :: WDConfig
-firefoxConfig = defaultConfig
+firefoxConfig = useBrowser firefox defaultConfig 
 
 chromeConfig :: WDConfig
-chromeConfig = useBrowser (chrome { chromeBinary = Just "/nix/store/rsssqjzxs9c25ir9mzq074k50l26fzgp-user-environment/bin/google-chrome-stable" }) defaultConfig
+-- chromeConfig = useBrowser (chrome { chromeBinary = Just "/nix/store/rsssqjzxs9c25ir9mzq074k50l26fzgp-user-environment/bin/google-chrome-stable", chromeOptions = ["--no-startup-window"] }) defaultConfig
+-- chromeConfig = useBrowser (chrome { chromeBinary = Just "/nix/store/rsssqjzxs9c25ir9mzq074k50l26fzgp-user-environment/bin/google-chrome-stable" }) defaultConfig
+chromeConfig = useBrowser chrome defaultConfig
 
-main :: IO ()
-main = do
+phantomjsConfig :: WDConfig
+phantomjsConfig = useBrowser (Phantomjs { phantomjsBinary = (Just "/nix/store/vk33lmblw5wyncq5n93y0z4nzjhjahy1-phantomjs-1.9.8/bin/phantomjs") , phantomjsOptions = [] }) defaultConfig
+
+checkInstance :: Text -> IO ()
+checkInstance instanceName = do
+
+  putStrLn $ "Start du test pour " <> (T.unpack instanceURL) <> " ..."
+
   runSession chromeConfig . finallyClose $ do
-    liftIO $ putStrLn "Start du test ..."
 
-    openPage "http://127.0.0.1:8080"
+    openPage (T.unpack instanceURL)
   
     loginInput <- findElem (ByCSS "input[type='text']")
     passwordInput <- findElem (ByCSS "input[type='password']")
@@ -43,4 +53,15 @@ main = do
         t <- getText sb
         liftIO $ print t
 
-    closeSession
+  putStrLn "Fin du test ..."
+
+  where
+    instanceURL = "https://" <> instanceName <> ".krb.gendarmerie.fr"
+
+
+main :: IO ()
+main = do
+  inventaire <- BSL.readFile "./inventaire.json"
+  case decode inventaire :: Maybe [Text] of
+    Just i -> mapM_ (checkInstance) i
+    Nothing -> putStrLn "Je ne comprend pas l'inventaire"

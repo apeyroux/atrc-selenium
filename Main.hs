@@ -47,7 +47,7 @@ checkInstance instanceName = do
     case (divServiceBlock :: Either FailedCommand Element) of
       Left (FailedCommand t _) -> do
         liftIO $ putStrLn "ERROR I TAKE SCREENSHOT !!!!"
-        saveScreenshot "/tmp/ok.jpg"
+        saveScreenshot $ "/tmp/snap/error-" <> (T.unpack instanceName) <> ".jpg"
         liftIO $ putStrLn $ show t
       Right sb -> do
         t <- getText sb
@@ -63,5 +63,12 @@ main :: IO ()
 main = do
   inventaire <- BSL.readFile "./inventaire.json"
   case decode inventaire :: Maybe [Text] of
-    Just i -> mapM_ (checkInstance) i
+    Just i -> mapM_ (\i -> do
+                        r <- try (checkInstance i)
+                        case (r :: Either FailedCommand ()) of
+                          Left (FailedCommand t _) -> do
+                            putStrLn $ "ERROR !!!!" <> show t
+                          Right _ -> do
+                            putStrLn "Traitement OK !!!!"
+                    ) i
     Nothing -> putStrLn "Je ne comprend pas l'inventaire"

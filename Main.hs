@@ -82,14 +82,14 @@ checkInstance instanceName = do
         searchForm <- try $ waitUntil 30 $ findElem (ById "nxw_search_form:nxw_search")
         case (searchForm :: Either FailedCommand Element) of
           Left (FailedCommand t x) -> do
-            saveScreenshot $ "/tmp/snap/error-" <> (T.unpack instanceName) <> "-" <> show t <> ".png"
+            saveScreenshot $ "/tmp/snap/" <> (T.unpack instanceName) <> ".png"
             -- liftIO $ putStrLn $ (T.unpack instanceName) <> " [KO] " <> show t <> " " <> show x
             liftIO $ putStrLn $ (T.unpack instanceName) <> " [KO] (voir screenshot) " <> show t
             return InstanceState {
               isName = instanceName
               , isOk = False
               , isMessage = Just $ show x
-              , isScreenPath = Just $ "/tmp/snap/error-" <> (T.unpack instanceName) <> "-" <> show t <> ".png"
+              , isScreenPath = Just $ "/tmp/snap/" <> (T.unpack instanceName) <> ".png"
               }
             -- liftIO $ putStrLn $ show t
           Right sf -> do
@@ -105,14 +105,14 @@ checkInstance instanceName = do
     
             case (searchButton :: Either FailedCommand Element) of
               Left (FailedCommand t x) -> do
-                saveScreenshot $ "/tmp/snap/error-" <> (T.unpack instanceName) <> "-" <> show t <> ".png"
+                saveScreenshot $ "/tmp/snap/" <> (T.unpack instanceName) <> ".png"
                 -- liftIO $ putStrLn $ (T.unpack instanceName) <> " [KO] " <> show t <> " " <> show x
                 liftIO $ putStrLn $ (T.unpack instanceName) <> " [KO] (voir screenshot)" <> show t
                 return InstanceState {
                   isName = instanceName
                   , isOk = False
                   , isMessage = Just $ show x
-                  , isScreenPath = Just $ "/tmp/snap/error-" <> (T.unpack instanceName) <> "-" <> show t <> ".png"
+                  , isScreenPath = Just $ "/tmp/snap/" <> (T.unpack instanceName) <> ".png"
                   }
                 -- liftIO $ putStrLn $ show t
               Right sb -> do
@@ -120,12 +120,13 @@ checkInstance instanceName = do
                 -- liftIO $ print t
                 -- searchButtonText <- getText sb
                 -- liftIO $ putStrLn (T.unpack searchButtonText)
+                saveScreenshot $ "/tmp/snap/" <> (T.unpack instanceName) <> ".png"
                 liftIO $ putStrLn $ (T.unpack instanceName) <> " [OK]"
                 return InstanceState {
                   isName = instanceName
                   , isOk = True
                   , isMessage = Nothing
-                  , isScreenPath = Nothing
+                  , isScreenPath = Just $ "/tmp/snap/" <> (T.unpack instanceName) <> ".png"
                   }
 
   -- putStrLn "Fin du test ..."

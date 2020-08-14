@@ -9,7 +9,7 @@ import           Control.Monad.IO.Class
 import           Control.Monad.Trans.Class
 import           Control.Monad.Trans.Except
 import           Control.Monad.Trans.State.Lazy
-import           Control.Monad.Trans.Writer.Lazy
+import           Control.Monad.Trans.Writer.Lazy as WL
 import           Data.Aeson
 import qualified Data.ByteString.Lazy as BSL
 import           Data.Monoid
@@ -42,7 +42,7 @@ data InstanceState = InstanceState {
 instance FromJSON InstanceState
 instance ToJSON InstanceState
 
-checkInstance :: Text -> WriterT [InstanceState] IO ()
+-- checkInstance :: Text -> InstanceState IO ()
 checkInstance instanceName = do
 
   -- putStrLn $ "Start du test pour " <> (T.unpack instanceURL) <> " ..."
@@ -53,82 +53,80 @@ checkInstance instanceName = do
     case (opage :: Either SomeException ()) of
       Left x -> do
         liftIO $ putStrLn $ (T.unpack instanceName) <> " [KO] (prob de cnx)"
-        execWriterT $ tell [(InstanceState {
+        return InstanceState {
                   isName = instanceName
                   , isOk = False
                   , isMessage = Just $ show x
                   , isScreenPath = Nothing
-                  })]
-        return ()
-      Right _ ->
-        return ()
-
-    -- t <- getTitle
-    -- liftIO $ putStrLn $ "Ouverture de la page: " <> T.unpack t <> " sur " <> (T.unpack instanceName)
-  
-    loginInput <- findElem (ById "username")
-    passwordInput <- findElem (ById "password")
-    loginButton <- findElem (ByClass "login_button")
-  
-    sendKeys "lrpgn" loginInput
-    sendKeys "nvw6xvkoyo" passwordInput
-  
-    -- waitUntil 30 $ submit passwordInput
-    -- waitUntil 30 $ click loginButton
-    click loginButton
-
-    -- t <- getTitle
-    -- liftIO $ putStrLn $ "Ouverture de la page: " <> T.unpack t <> " sur " <> (T.unpack instanceName)
-
-    -- searchForm <- try $ waitUntil 120 $ findElem (ById "nxw_search_form:nxw_search")
-    searchForm <- try $ waitUntil 30 $ findElem (ById "nxw_search_form:nxw_search")
-    case (searchForm :: Either FailedCommand Element) of
-      Left (FailedCommand t x) -> do
-        saveScreenshot $ "/tmp/snap/error-" <> (T.unpack instanceName) <> "-" <> show t <> ".png"
-        -- liftIO $ putStrLn $ (T.unpack instanceName) <> " [KO] " <> show t <> " " <> show x
-        liftIO $ putStrLn $ (T.unpack instanceName) <> " [KO] (voir screenshot) " <> show t
-        execWriterT $ tell [(InstanceState {
-                                isName = instanceName
-                                , isOk = False
-                                , isMessage = Just $ show x
-                                , isScreenPath = Just $ "/tmp/snap/error-" <> (T.unpack instanceName) <> "-" <> show t <> ".png"
-                                })]
-        -- liftIO $ putStrLn $ show t
-      Right sf -> do
-        -- t <- getText sb
-        -- liftIO $ print t
-        -- searchButtonText <- getText sb
-        -- liftIO $ putStrLn (T.unpack searchButtonText)
-        click sf
+                  }
+      Right _ -> do
 
         -- t <- getTitle
         -- liftIO $ putStrLn $ "Ouverture de la page: " <> T.unpack t <> " sur " <> (T.unpack instanceName)
-        searchButton <- try $ waitUntil 30 $ findElem (ById "nxl_gridSearchLayout:nxw_searchLayout_form:nxw_searchActions_submitSearch")
-    
-        case (searchButton :: Either FailedCommand Element) of
+  
+        loginInput <- findElem (ById "username")
+        passwordInput <- findElem (ById "password")
+        loginButton <- findElem (ByClass "login_button")
+  
+        sendKeys "lrpgn" loginInput
+        sendKeys "nvw6xvkoyo" passwordInput
+  
+        -- waitUntil 30 $ submit passwordInput
+        -- waitUntil 30 $ click loginButton
+        click loginButton
+
+        -- t <- getTitle
+        -- liftIO $ putStrLn $ "Ouverture de la page: " <> T.unpack t <> " sur " <> (T.unpack instanceName)
+
+        -- searchForm <- try $ waitUntil 120 $ findElem (ById "nxw_search_form:nxw_search")
+        searchForm <- try $ waitUntil 30 $ findElem (ById "nxw_search_form:nxw_search")
+        case (searchForm :: Either FailedCommand Element) of
           Left (FailedCommand t x) -> do
             saveScreenshot $ "/tmp/snap/error-" <> (T.unpack instanceName) <> "-" <> show t <> ".png"
             -- liftIO $ putStrLn $ (T.unpack instanceName) <> " [KO] " <> show t <> " " <> show x
-            liftIO $ putStrLn $ (T.unpack instanceName) <> " [KO] (voir screenshot)" <> show t
-            execWriterT $ tell [(InstanceState {
-                        isName = instanceName
-                        , isOk = False
-                        , isMessage = Just $ show x
-                        , isScreenPath = Just $ "/tmp/snap/error-" <> (T.unpack instanceName) <> "-" <> show t <> ".png"
-                        })]
+            liftIO $ putStrLn $ (T.unpack instanceName) <> " [KO] (voir screenshot) " <> show t
+            return InstanceState {
+              isName = instanceName
+              , isOk = False
+              , isMessage = Just $ show x
+              , isScreenPath = Just $ "/tmp/snap/error-" <> (T.unpack instanceName) <> "-" <> show t <> ".png"
+              }
             -- liftIO $ putStrLn $ show t
-          Right sb -> do
+          Right sf -> do
             -- t <- getText sb
             -- liftIO $ print t
             -- searchButtonText <- getText sb
             -- liftIO $ putStrLn (T.unpack searchButtonText)
-            execWriterT $ tell [(InstanceState {
-                        isName = instanceName
-                        , isOk = True
-                        , isMessage = Nothing
-                        , isScreenPath = Nothing
-                        })]
-            liftIO $ putStrLn $ (T.unpack instanceName) <> " [OK]"
+            click sf
+
+            -- t <- getTitle
+            -- liftIO $ putStrLn $ "Ouverture de la page: " <> T.unpack t <> " sur " <> (T.unpack instanceName)
+            searchButton <- try $ waitUntil 30 $ findElem (ById "nxl_gridSearchLayout:nxw_searchLayout_form:nxw_searchActions_submitSearch")
+    
+            case (searchButton :: Either FailedCommand Element) of
+              Left (FailedCommand t x) -> do
+                saveScreenshot $ "/tmp/snap/error-" <> (T.unpack instanceName) <> "-" <> show t <> ".png"
+                -- liftIO $ putStrLn $ (T.unpack instanceName) <> " [KO] " <> show t <> " " <> show x
+                liftIO $ putStrLn $ (T.unpack instanceName) <> " [KO] (voir screenshot)" <> show t
+                return InstanceState {
+                  isName = instanceName
+                  , isOk = False
+                  , isMessage = Just $ show x
+                  , isScreenPath = Just $ "/tmp/snap/error-" <> (T.unpack instanceName) <> "-" <> show t <> ".png"
+                  }
+                -- liftIO $ putStrLn $ show t
+              Right sb -> do
+                -- t <- getText sb
+                -- liftIO $ print t
+                -- searchButtonText <- getText sb
+                -- liftIO $ putStrLn (T.unpack searchButtonText)
+                liftIO $ putStrLn $ (T.unpack instanceName) <> " [OK]"
+                return InstanceState {
+                  isName = instanceName
+                  , isOk = True
+                  , isMessage = Nothing
+                  , isScreenPath = Nothing
+                  }
 
   -- putStrLn "Fin du test ..."
 
@@ -142,19 +140,23 @@ main = do
     case decode inventaire :: Maybe [Text] of
       Just i -> mapM_ (\i -> do
                         r <- try $ checkInstance i
-                        case (r :: Either FailedCommand ()) of
-                          Left (FailedCommand t _) -> do
-                            tell [(InstanceState {
-                                      isName = i
-                                      , isOk = False
-                                      , isMessage = Just $ show t
-                                      , isScreenPath = Nothing
-                                      })]
+                        case (r :: Either FailedCommand InstanceState) of
+                          Left (FailedCommand s t) -> do
+                            -- tell [s]
                             -- putStrLn $ (T.unpack i) <> " [KO]" -- "ERROR: " <> show t
+                            tell [InstanceState {
+                              isName = i
+                              , isOk = False
+                              , isMessage = Just $ show t
+                              , isScreenPath = Nothing
+                              }]
                             return ()
-                          Right _ -> do
+                          Right s -> do
+                            tell [s]
                             return ()
                             -- putStrLn "Traitement OK !!!!"
                     ) i
       Nothing -> liftIO $ putStrLn "Je ne comprend pas l'inventaire"
   BSL.putStrLn $ encode w
+  BSL.writeFile "./status.json" (encode w)
+

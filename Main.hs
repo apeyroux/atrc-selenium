@@ -9,7 +9,9 @@ import           Data.Aeson
 import qualified Data.ByteString.Lazy as BSL
 import           Data.Text (Text)
 import           Data.Text as T
+import           Network.HTTP.Conduit (ResponseTimeout)
 import           Test.WebDriver
+import           Test.WebDriver.Commands.Wait
 import           Test.WebDriver.Exceptions
 
 firefoxConfig :: WDConfig
@@ -28,32 +30,51 @@ checkInstance instanceName = do
 
   -- putStrLn $ "Start du test pour " <> (T.unpack instanceURL) <> " ..."
 
-  runSession (firefoxConfig { wdHTTPRetryCount = 2 }) . finallyClose $ do
+  runSession (firefoxConfig { wdHTTPRetryCount = 5 }) . finallyClose $ do
 
-    openPage (T.unpack instanceURL)
+    opage <- try $ openPage (T.unpack instanceURL)
+    case (opage :: Either SomeException ()) of
+      Left x -> do
+        liftIO $ putStrLn $ (T.unpack instanceName) <> " [KO] " <> " " <> show x
+        return ()
+      Right r ->
+        return ()
+
+    t <- getTitle
+    liftIO $ putStrLn $ "Ouverture de la page: " <> T.unpack t <> " sur " <> (T.unpack instanceName)
   
-    loginInput <- findElem (ByCSS "input[type='text']")
-    passwordInput <- findElem (ByCSS "input[type='password']")
-    loginButton <- findElem (ByCSS "input[class='login_button']")
+    loginInput <- findElem (ById "username")
+    passwordInput <- findElem (ById "password")
+    loginButton <- findElem (ByClass "login_button")
   
     sendKeys "lrpgn" loginInput
     sendKeys "nvw6xvkoyo" passwordInput
   
-    -- submit loginButton 
-    click loginButton 
+    -- waitUntil 30 $ submit passwordInput
+    -- waitUntil 30 $ click loginButton
+    click loginButton
 
-    -- t <- getTitle
-    -- liftIO $ putStrLn $ "Ouverture de la page: " <> T.unpack t
+    t <- getTitle
+    liftIO $ putStrLn $ "Ouverture de la page: " <> T.unpack t <> " sur " <> (T.unpack instanceName)
 
-    divServiceBlock <- try $ findElem (ByCSS "div[class='menu']")
-    case (divServiceBlock :: Either FailedCommand Element) of
-      Left (FailedCommand t _) -> do
-        liftIO $ putStrLn $ (T.unpack instanceName) <> " [KO] " <> show t 
-        saveScreenshot $ "/tmp/snap/error-" <> (T.unpack instanceName) <> ".png"
+    -- searchForm <- try $ waitUntil 120 $ findElem (ById "nxw_search_form:nxw_search")
+    searchForm <- findElem (ById "nxw_search_form:nxw_search")
+    click searchForm
+
+    t <- getTitle
+    liftIO $ putStrLn $ "Ouverture de la page: " <> T.unpack t <> " sur " <> (T.unpack instanceName)
+    searchButton <- try $ waitUntil 30 $ findElem (ById "nxl_gridSearchLayout:nxw_searchLayout_form:nxw_searchActions_submitSearch")
+    
+    case (searchButton :: Either FailedCommand Element) of
+      Left (FailedCommand t x) -> do
+        saveScreenshot $ "/tmp/snap/error-" <> (T.unpack instanceName) <> "-" <> show t <> ".png"
+        liftIO $ putStrLn $ (T.unpack instanceName) <> " [KO] " <> show t <> " " <> show x
         -- liftIO $ putStrLn $ show t
-      Right _ -> do
+      Right sb -> do
         -- t <- getText sb
         -- liftIO $ print t
+        -- searchButtonText <- getText sb
+        -- liftIO $ putStrLn (T.unpack searchButtonText)
         liftIO $ putStrLn $ (T.unpack instanceName) <> " [OK]"
 
   -- putStrLn "Fin du test ..."

@@ -15,11 +15,15 @@ import qualified Data.ByteString.Lazy as BSL
 import           Data.Monoid
 import           Data.Text (Text)
 import           Data.Text as T
+import           Data.Time.Clock
 import           GHC.Generics
 import           Network.HTTP.Conduit (ResponseTimeout)
 import           Test.WebDriver
 import           Test.WebDriver.Commands.Wait
 import           Test.WebDriver.Exceptions
+import           Text.Blaze.Html.Renderer.Pretty
+import qualified Text.Blaze.Html5 as H
+import qualified Text.Blaze.Html5.Attributes as A
 
 firefoxConfig :: WDConfig
 firefoxConfig = useBrowser firefox { ffAcceptInsecureCerts = (Just True)  }  defaultConfig 
@@ -82,14 +86,14 @@ checkInstance instanceName = do
         searchForm <- try $ waitUntil 30 $ findElem (ById "nxw_search_form:nxw_search")
         case (searchForm :: Either FailedCommand Element) of
           Left (FailedCommand t x) -> do
-            saveScreenshot $ "/tmp/snap/" <> (T.unpack instanceName) <> ".png"
+            saveScreenshot $ basePath <> (T.unpack instanceName) <> ".png"
             -- liftIO $ putStrLn $ (T.unpack instanceName) <> " [KO] " <> show t <> " " <> show x
             liftIO $ putStrLn $ (T.unpack instanceName) <> " [KO] (voir screenshot) " <> show t
             return InstanceState {
               isName = instanceName
               , isOk = False
               , isMessage = Just $ show x
-              , isScreenPath = Just $ "/tmp/snap/" <> (T.unpack instanceName) <> ".png"
+              , isScreenPath = Just $ (T.unpack instanceName) <> ".png"
               }
             -- liftIO $ putStrLn $ show t
           Right sf -> do
@@ -105,14 +109,14 @@ checkInstance instanceName = do
     
             case (searchButton :: Either FailedCommand Element) of
               Left (FailedCommand t x) -> do
-                saveScreenshot $ "/tmp/snap/" <> (T.unpack instanceName) <> ".png"
+                saveScreenshot $ basePath <> (T.unpack instanceName) <> ".png"
                 -- liftIO $ putStrLn $ (T.unpack instanceName) <> " [KO] " <> show t <> " " <> show x
                 liftIO $ putStrLn $ (T.unpack instanceName) <> " [KO] (voir screenshot)" <> show t
                 return InstanceState {
                   isName = instanceName
                   , isOk = False
                   , isMessage = Just $ show x
-                  , isScreenPath = Just $ "/tmp/snap/" <> (T.unpack instanceName) <> ".png"
+                  , isScreenPath = Just $ (T.unpack instanceName) <> ".png"
                   }
                 -- liftIO $ putStrLn $ show t
               Right sb -> do
@@ -120,24 +124,43 @@ checkInstance instanceName = do
                 -- liftIO $ print t
                 -- searchButtonText <- getText sb
                 -- liftIO $ putStrLn (T.unpack searchButtonText)
-                saveScreenshot $ "/tmp/snap/" <> (T.unpack instanceName) <> ".png"
+                saveScreenshot $ basePath <> (T.unpack instanceName) <> ".png"
                 liftIO $ putStrLn $ (T.unpack instanceName) <> " [OK]"
                 return InstanceState {
                   isName = instanceName
                   , isOk = True
                   , isMessage = Nothing
-                  , isScreenPath = Just $ "/tmp/snap/" <> (T.unpack instanceName) <> ".png"
+                  , isScreenPath = Just $ (T.unpack instanceName) <> ".png"
                   }
 
   -- putStrLn "Fin du test ..."
 
   where
     instanceURL = "https://atrc-" <> instanceName <> ".krb.gendarmerie.fr/nuxeo/login.jsp"
+    basePath = "/var/www/html/"
+
+statusPage :: [InstanceState] -> UTCTime -> H.Html
+statusPage state ct = H.html $ do
+  H.head $ do
+    H.title "ATRC Bot"
+  H.body $ do
+    H.h1 $ H.toHtml $ "ATRC BOT" <> " le " <> show ct
+
+    H.ul $ do
+      mapM_ (\i -> do
+                H.li $ H.h3 (H.toHtml $ isName i)
+                if (isOk i) then H.b "INSTANCE OK" else H.b "INSTANCE KO"
+                H.br
+                case (isScreenPath i) of
+                  Just imgPath -> H.img H.! A.src (H.stringValue imgPath) H.! A.alt "Screenshot" H.! A.size "10px"
+                  Nothing -> return ()
+            ) state
+      
 
 main :: IO ()
 main = do
   (_, w) <- runWriterT $ do
-    inventaire <- liftIO $ BSL.readFile "./inventaire.json"
+    inventaire <- liftIO $ BSL.readFile "/home/debian/inventaire.json"
     case decode inventaire :: Maybe [Text] of
       Just i -> mapM_ (\i -> do
                         r <- try $ checkInstance i
@@ -158,6 +181,7 @@ main = do
                             -- putStrLn "Traitement OK !!!!"
                     ) i
       Nothing -> liftIO $ putStrLn "Je ne comprend pas l'inventaire"
-  BSL.putStrLn $ encode w
-  BSL.writeFile "./status.json" (encode w)
-
+  -- BSL.putStrLn $ encode w
+  BSL.writeFile "/var/www/html/status.json" (encode w)
+  ct <- getCurrentTime
+  writeFile "/var/www/html/index.html" (renderHtml (statusPage w ct))

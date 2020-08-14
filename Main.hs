@@ -1,14 +1,21 @@
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE DeriveGeneric #-}
 
 module Main where
 
 import           Control.Exception.Lifted (SomeException, try, throwIO)
+import           Control.Monad (liftM2)
 import           Control.Monad.IO.Class
+import           Control.Monad.Trans.Class
 import           Control.Monad.Trans.Except
+import           Control.Monad.Trans.State.Lazy
+import           Control.Monad.Trans.Writer.Lazy
 import           Data.Aeson
 import qualified Data.ByteString.Lazy as BSL
+import           Data.Monoid
 import           Data.Text (Text)
 import           Data.Text as T
+import           GHC.Generics
 import           Network.HTTP.Conduit (ResponseTimeout)
 import           Test.WebDriver
 import           Test.WebDriver.Commands.Wait
@@ -25,19 +32,35 @@ chromeConfig = useBrowser chrome defaultConfig
 phantomjsConfig :: WDConfig
 phantomjsConfig = useBrowser (Phantomjs { phantomjsBinary = (Just "/nix/store/vk33lmblw5wyncq5n93y0z4nzjhjahy1-phantomjs-1.9.8/bin/phantomjs") , phantomjsOptions = [] }) defaultConfig
 
-checkInstance :: Text -> IO ()
+data InstanceState = InstanceState {
+  isName :: Text
+  , isOk :: Bool
+  , isMessage :: Maybe String
+  , isScreenPath :: Maybe String
+} deriving (Eq, Ord, Show, Generic)
+
+instance FromJSON InstanceState
+instance ToJSON InstanceState
+
+checkInstance :: Text -> WriterT [InstanceState] IO ()
 checkInstance instanceName = do
 
   -- putStrLn $ "Start du test pour " <> (T.unpack instanceURL) <> " ..."
 
-  runSession (firefoxConfig { wdHTTPRetryCount = 1 }) . finallyClose $ do
+  liftIO $ runSession (firefoxConfig { wdHTTPRetryCount = 1 }) . finallyClose $ do
 
     opage <- try $ openPage (T.unpack instanceURL)
     case (opage :: Either SomeException ()) of
       Left x -> do
         liftIO $ putStrLn $ (T.unpack instanceName) <> " [KO] (prob de cnx)"
+        execWriterT $ tell [(InstanceState {
+                  isName = instanceName
+                  , isOk = False
+                  , isMessage = Just $ show x
+                  , isScreenPath = Nothing
+                  })]
         return ()
-      Right r ->
+      Right _ ->
         return ()
 
     -- t <- getTitle
@@ -64,6 +87,12 @@ checkInstance instanceName = do
         saveScreenshot $ "/tmp/snap/error-" <> (T.unpack instanceName) <> "-" <> show t <> ".png"
         -- liftIO $ putStrLn $ (T.unpack instanceName) <> " [KO] " <> show t <> " " <> show x
         liftIO $ putStrLn $ (T.unpack instanceName) <> " [KO] (voir screenshot) " <> show t
+        execWriterT $ tell [(InstanceState {
+                                isName = instanceName
+                                , isOk = False
+                                , isMessage = Just $ show x
+                                , isScreenPath = Just $ "/tmp/snap/error-" <> (T.unpack instanceName) <> "-" <> show t <> ".png"
+                                })]
         -- liftIO $ putStrLn $ show t
       Right sf -> do
         -- t <- getText sb
@@ -81,12 +110,24 @@ checkInstance instanceName = do
             saveScreenshot $ "/tmp/snap/error-" <> (T.unpack instanceName) <> "-" <> show t <> ".png"
             -- liftIO $ putStrLn $ (T.unpack instanceName) <> " [KO] " <> show t <> " " <> show x
             liftIO $ putStrLn $ (T.unpack instanceName) <> " [KO] (voir screenshot)" <> show t
+            execWriterT $ tell [(InstanceState {
+                        isName = instanceName
+                        , isOk = False
+                        , isMessage = Just $ show x
+                        , isScreenPath = Just $ "/tmp/snap/error-" <> (T.unpack instanceName) <> "-" <> show t <> ".png"
+                        })]
             -- liftIO $ putStrLn $ show t
           Right sb -> do
             -- t <- getText sb
             -- liftIO $ print t
             -- searchButtonText <- getText sb
             -- liftIO $ putStrLn (T.unpack searchButtonText)
+            execWriterT $ tell [(InstanceState {
+                        isName = instanceName
+                        , isOk = True
+                        , isMessage = Nothing
+                        , isScreenPath = Nothing
+                        })]
             liftIO $ putStrLn $ (T.unpack instanceName) <> " [OK]"
 
   -- putStrLn "Fin du test ..."
@@ -94,19 +135,26 @@ checkInstance instanceName = do
   where
     instanceURL = "https://atrc-" <> instanceName <> ".krb.gendarmerie.fr/nuxeo/login.jsp"
 
-
 main :: IO ()
 main = do
-  inventaire <- BSL.readFile "./inventaire.json"
-  case decode inventaire :: Maybe [Text] of
-    Just i -> mapM_ (\i -> do
-                        r <- try (checkInstance i)
+  (_, w) <- runWriterT $ do
+    inventaire <- liftIO $ BSL.readFile "./inventaire.json"
+    case decode inventaire :: Maybe [Text] of
+      Just i -> mapM_ (\i -> do
+                        r <- try $ checkInstance i
                         case (r :: Either FailedCommand ()) of
                           Left (FailedCommand t _) -> do
+                            tell [(InstanceState {
+                                      isName = i
+                                      , isOk = False
+                                      , isMessage = Just $ show t
+                                      , isScreenPath = Nothing
+                                      })]
                             -- putStrLn $ (T.unpack i) <> " [KO]" -- "ERROR: " <> show t
                             return ()
                           Right _ -> do
                             return ()
                             -- putStrLn "Traitement OK !!!!"
                     ) i
-    Nothing -> putStrLn "Je ne comprend pas l'inventaire"
+      Nothing -> liftIO $ putStrLn "Je ne comprend pas l'inventaire"
+  BSL.putStrLn $ encode w

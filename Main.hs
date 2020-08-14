@@ -30,18 +30,18 @@ checkInstance instanceName = do
 
   -- putStrLn $ "Start du test pour " <> (T.unpack instanceURL) <> " ..."
 
-  runSession (firefoxConfig { wdHTTPRetryCount = 5 }) . finallyClose $ do
+  runSession (firefoxConfig { wdHTTPRetryCount = 1 }) . finallyClose $ do
 
     opage <- try $ openPage (T.unpack instanceURL)
     case (opage :: Either SomeException ()) of
       Left x -> do
-        liftIO $ putStrLn $ (T.unpack instanceName) <> " [KO] " <> " " <> show x
+        liftIO $ putStrLn $ (T.unpack instanceName) <> " [KO] (prob de cnx)"
         return ()
       Right r ->
         return ()
 
-    t <- getTitle
-    liftIO $ putStrLn $ "Ouverture de la page: " <> T.unpack t <> " sur " <> (T.unpack instanceName)
+    -- t <- getTitle
+    -- liftIO $ putStrLn $ "Ouverture de la page: " <> T.unpack t <> " sur " <> (T.unpack instanceName)
   
     loginInput <- findElem (ById "username")
     passwordInput <- findElem (ById "password")
@@ -54,28 +54,40 @@ checkInstance instanceName = do
     -- waitUntil 30 $ click loginButton
     click loginButton
 
-    t <- getTitle
-    liftIO $ putStrLn $ "Ouverture de la page: " <> T.unpack t <> " sur " <> (T.unpack instanceName)
+    -- t <- getTitle
+    -- liftIO $ putStrLn $ "Ouverture de la page: " <> T.unpack t <> " sur " <> (T.unpack instanceName)
 
     -- searchForm <- try $ waitUntil 120 $ findElem (ById "nxw_search_form:nxw_search")
-    searchForm <- findElem (ById "nxw_search_form:nxw_search")
-    click searchForm
-
-    t <- getTitle
-    liftIO $ putStrLn $ "Ouverture de la page: " <> T.unpack t <> " sur " <> (T.unpack instanceName)
-    searchButton <- try $ waitUntil 30 $ findElem (ById "nxl_gridSearchLayout:nxw_searchLayout_form:nxw_searchActions_submitSearch")
-    
-    case (searchButton :: Either FailedCommand Element) of
+    searchForm <- try $ waitUntil 30 $ findElem (ById "nxw_search_form:nxw_search")
+    case (searchForm :: Either FailedCommand Element) of
       Left (FailedCommand t x) -> do
         saveScreenshot $ "/tmp/snap/error-" <> (T.unpack instanceName) <> "-" <> show t <> ".png"
-        liftIO $ putStrLn $ (T.unpack instanceName) <> " [KO] " <> show t <> " " <> show x
+        -- liftIO $ putStrLn $ (T.unpack instanceName) <> " [KO] " <> show t <> " " <> show x
+        liftIO $ putStrLn $ (T.unpack instanceName) <> " [KO] (voir screenshot) " <> show t
         -- liftIO $ putStrLn $ show t
-      Right sb -> do
+      Right sf -> do
         -- t <- getText sb
         -- liftIO $ print t
         -- searchButtonText <- getText sb
         -- liftIO $ putStrLn (T.unpack searchButtonText)
-        liftIO $ putStrLn $ (T.unpack instanceName) <> " [OK]"
+        click sf
+
+        -- t <- getTitle
+        -- liftIO $ putStrLn $ "Ouverture de la page: " <> T.unpack t <> " sur " <> (T.unpack instanceName)
+        searchButton <- try $ waitUntil 30 $ findElem (ById "nxl_gridSearchLayout:nxw_searchLayout_form:nxw_searchActions_submitSearch")
+    
+        case (searchButton :: Either FailedCommand Element) of
+          Left (FailedCommand t x) -> do
+            saveScreenshot $ "/tmp/snap/error-" <> (T.unpack instanceName) <> "-" <> show t <> ".png"
+            -- liftIO $ putStrLn $ (T.unpack instanceName) <> " [KO] " <> show t <> " " <> show x
+            liftIO $ putStrLn $ (T.unpack instanceName) <> " [KO] (voir screenshot)" <> show t
+            -- liftIO $ putStrLn $ show t
+          Right sb -> do
+            -- t <- getText sb
+            -- liftIO $ print t
+            -- searchButtonText <- getText sb
+            -- liftIO $ putStrLn (T.unpack searchButtonText)
+            liftIO $ putStrLn $ (T.unpack instanceName) <> " [OK]"
 
   -- putStrLn "Fin du test ..."
 
